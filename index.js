@@ -5,6 +5,7 @@ var tracerProgram;
 var renderProgram;
 Main();
 
+
 async function Main(){
     //fetch shader source
     var fetch_tracer_vert = fetch("tracer_vert.glsl").then(r => r.text());
@@ -18,7 +19,8 @@ async function Main(){
     const canvas = getCanvas();
     //get WebGL context
     const gl = getGL(canvas);
-
+    // load background image
+    sceneData.background_texture = loadImageTexture(gl);
     //get shader source 
     var tracerVertexSource = await fetch_tracer_vert; 
     var tracerFragSource = await   fetch_tracer_frag;
@@ -35,6 +37,13 @@ async function Main(){
     //define position, radius, color, material, lighting, eye, of the scene 
     initGameState(gameState);
 
+
+    //get texture location of tracerProgram
+    // the rest uniforms locations are done in setUniforms()
+    sceneData.framebufferTextureLocation = gl.getUniformLocation(tracerProgram, "framebuffer_texture");
+    sceneData.backgroundTextureLocation = gl.getUniformLocation(tracerProgram, "background_texture");
+ 
+    
     const fpsElem = document.querySelector("#fps");
     let then = 0;
     function updateAndRender(now) {
@@ -66,15 +75,25 @@ function update(gl, tracerProgram, gameState, sceneData){
     gameState.textureWeight = sceneData.frameCount / (sceneData.frameCount + 1.0);
     
     gl.useProgram(tracerProgram);
+    
     // bind texture[0] to fragmentshader 
+    gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, sceneData.textures[0]);
+
+    // bind background image to fragmentshader
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, sceneData.background_texture);
+    
     //bind fragmentshader output framebuffer
     gl.bindFramebuffer(gl.FRAMEBUFFER, sceneData.framebuffer);
     // bind framebuffer color data  to texture[1]
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, sceneData.textures[1], 0);
     
     enableSquareVAO(gl, tracerProgram);
-
+   
+    // set which texture units to render with.
+    gl.uniform1i(sceneData.framebufferTextureLocation, 0);  // texture unit 0
+    gl.uniform1i(sceneData.backgroundTextureLocation, 1);  // texture unit 1
     setUniforms(gl, tracerProgram, gameState);
     
     const offset = 0;
@@ -134,23 +153,26 @@ function initGameState(gameState){
 				    1.5,  0.04, -3.0,0.3];
     
     //set sphere color 
-    gameState.sphereColor = [0.2,0.3,0.2,
-			     0.7,0.3,0.3,
-			     1.0,1.0,1.0,
-			     1.0,1.0,1.0,
-			     0.5,0.5,0.5,
+    gameState.sphereColor = [1.0,1.0,1.0,
 			     0.4,0.4,0.4,
-			     0.3,0.6,0.7,
-			     0.3,0.3,0.7,//purple
-			     0.7,0.4,0.2,
-			     0.5,0.7,0.3];
+			     1.0,1.0,1.0,
+			     1.0,1.0,1.0,
+			     1.0,1.0,1.0,
+			     1.0,1.0,1.0,
+			     1.0,1.0,1.0,
+			     0.4,0.4,0.4,//purple
+			     0.4,0.4,0.4,
+			     0.4,0.4,0.4];
 
-    gameState.sphereMaterial = [Number.NEGATIVE_INFINITY, 0.0 , -2.3, -2.3,0.0,0.0, 0.0 ,Number.NEGATIVE_INFINITY, 0.05 , 0.5 ];
+    gameState.sphereMaterial = [-2.3, 0.0 , -2.3, -0.6,-1.0, -4.0, -0.5 ,0.0 , 0.0 , 0.0 ];
     
 }
 
 
+
+
 function setUniforms(gl, program, data){
+       
     for(var name in data){
 	var value =  data[name];
 	var location = gl.getUniformLocation(program, name);
@@ -364,3 +386,63 @@ function getGL(canvas){
     return gl;
 }
 
+
+//load image
+function loadImageTexture(gl) {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+
+    // Because images have to be downloaded over the internet
+    // they might take a moment until they are ready.
+    // Until then put a single pixel in the texture so we can
+    // use it immediately. When the image has finished downloading
+    // we'll update the texture with the contents of the image.
+    const level = 0;
+    const internalFormat = gl.RGBA;
+    const width = 1;
+    const height = 1;
+    const border = 0;
+    const srcFormat = gl.RGBA;
+    const srcType = gl.UNSIGNED_BYTE;
+    const pixel = new Uint8Array([0, 0, 0, 255]);  // opaque blue
+    gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                  width, height, border, srcFormat, srcType,
+                  pixel);
+
+    const image = new Image();
+    window.addEventListener('load', function() {
+	document.querySelector('input[type="file"]').addEventListener('change', function() {
+	    if (this.files && this.files[0]) {
+		image.src = URL.createObjectURL(this.files[0]); // set src to blob url
+		//alert(image.src)
+	    }
+	});
+    });
+    
+    
+    image.onload = function() {
+	gl.bindTexture(gl.TEXTURE_2D, texture);
+	gl.texImage2D(gl.TEXTURE_2D, level, internalFormat,
+                      srcFormat, srcType, image);
+
+	// WebGL1 has different requirements for power of 2 images
+	// vs non power of 2 images so check if the image is a
+	// power of 2 in both dimensions.
+	if (isPowerOf2(image.width) && isPowerOf2(image.height)) {
+	    // Yes, it's a power of 2. Generate mips.
+	    gl.generateMipmap(gl.TEXTURE_2D);
+	} else {
+	    // No, it's not a power of 2. Turn off mips and set
+	    // wrapping to clamp to edge
+	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+	    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+	}
+    };
+    
+
+    return texture;
+}
+function isPowerOf2(value) {
+  return (value & (value - 1)) == 0;
+}

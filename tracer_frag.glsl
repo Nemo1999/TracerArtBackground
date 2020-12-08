@@ -6,8 +6,8 @@ uniform vec3 eyePos;
 varying vec3 initialRay;
 
 uniform float textureWeight;
-uniform sampler2D texture;
-
+uniform sampler2D framebuffer_texture;
+uniform sampler2D background_texture;
 //light position
 uniform vec3 lightPos;
 uniform float lightSize;
@@ -161,7 +161,14 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
 }
 
 vec3 findBackGround(vec3 origin, vec3 dir){
-  return mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(dir.y+1.0)*0.5);
+
+  float phi = atan(dir.y , dir.x) / (2.0 * pi) + 0.5;
+  float theta = atan(length(dir.xy)/dir.z)  / pi + 0.5;
+  vec3 texil = texture2D(background_texture, vec2(phi, theta)).rgb;
+  if(texil == vec3(0.0,0.0,0.0))
+    return mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(dir.y+1.0)*0.5);
+  else
+    return texil.rgb;
 }
 
 
@@ -199,6 +206,6 @@ void main(){
 
   
   vec3 initialRayBlur = initialRay + 0.001 * randomUnitDirection(timeSinceStart); 
-  vec3 textureData = texture2D(texture, gl_FragCoord.xy / vec2(1000,700)).rgb;
+  vec3 textureData = texture2D(framebuffer_texture, gl_FragCoord.xy / vec2(1000,700)).rgb;
   gl_FragColor = vec4(mix(findColor(eyePos, initialRayBlur), textureData, textureWeight), 1.0);
 }
