@@ -141,7 +141,7 @@ function initGameState(gameState){
     gameState.lightSize = 0.2;
     
     //set sphere position and radius
-    gameState.sphereCenterRadius = [0.0,-100.0,-10.0,100.0,
+    gameState.sphereCenterRadius = [0.0,-1.0,-10.0,1.0,
 				    0.0,0.9,-5.0,1.0,
 				    0.5,0.2,-2.0,0.5,
 				    -3.0,0.6,-6.0,0.7,

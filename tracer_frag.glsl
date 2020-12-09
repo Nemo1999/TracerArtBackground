@@ -156,16 +156,16 @@ void materialBounce( inout vec3 origin, inout vec3 dir, inout float surfaceLight
     specular =  pow(specularIndex, 3.0);
   }
   float shadow = computeShadow(hitPoint + epsilon * surfaceNormal, toLightDir);
-  surfaceLight = ambient + ( (specular + diffuse) * shadow );
+  surfaceLight = ambient + ( ( specular + diffuse) * shadow );
   origin = hitPoint + epsilon * surfaceNormal;
 }
 
-vec3 findBackGround(vec3 origin, vec3 dir){
+vec3 findBackGround(vec3 origin, vec3 dir,int bounces){
 
   float phi = atan(dir.y , dir.x) / (2.0 * pi) + 0.5;
   float theta = atan(length(dir.xy)/dir.z)  / pi + 0.5;
   vec3 texil = texture2D(background_texture, vec2(phi, theta)).rgb;
-  if(texil == vec3(0.0,0.0,0.0))
+  if(texil == vec3(0.0,0.0,0.0) || bounces == 0)
     return mix(vec3(1.0,1.0,1.0),vec3(0.5,0.7,1.0),(dir.y+1.0)*0.5);
   else
     return texil.rgb;
@@ -189,7 +189,7 @@ vec3 findColor(vec3  origin,vec3 dir ){
     float surfaceLight;
     if(t == inf){
       surfaceLight = 1.0;
-      hitObjColor = findBackGround(o,d);
+      hitObjColor = findBackGround(o,d,i);
       breakEarly = true;
     }
     else{
