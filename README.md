@@ -1,6 +1,6 @@
 # WebGL-Raytracer
 A  ray-tracer based on WebGL, for a Computer Graphics course project  at NCTU  
-Live Demo Available at [https://nemo1999.github.io/](https://nemo1999.github.io/)
+Live Demo Available at [https://nemo1999.github.io/TracerArtBackground/)
 
 ![Render Result](result.png)
 
